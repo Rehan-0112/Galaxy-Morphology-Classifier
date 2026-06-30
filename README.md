@@ -72,6 +72,39 @@ This is the baseline number future models (CNN, transfer learning) will be
 compared against. Full training curves and reasoning are in
 `notebooks/03_baseline_dense_nn.ipynb`.
 
+## CNN Model
+
+Built a convolutional neural network to address the dense baseline's main
+limitation — flattening images destroys spatial structure. Architecture: three
+Conv2D + MaxPooling blocks (32 → 64 → 128 filters), followed by a Dense layer
+(128 neurons) and softmax output. Also added data augmentation (random flips and
+rotations), since galaxies have no fixed "correct" orientation in the sky.
+
+Trained on Google Colab (GPU) due to CPU training time constraints — this
+architecture would have taken an estimated 30+ minutes to over an hour per full
+run on the local CPU-only machine, versus a few minutes on GPU.
+
+Used the same early stopping setup as the baseline (`patience=3`, monitoring
+validation loss, restoring best weights). Training stopped at epoch 11, with the
+best validation performance at epoch 8.
+
+**Final test accuracy: 72.7%** — a meaningful improvement over the dense
+baseline's 63.5%. The train/validation gap was also much smaller than the dense
+baseline's, suggesting the CNN generalizes better, likely due to both data
+augmentation and the architecture's inherent fit to image data (weight sharing
+via convolution, instead of treating every pixel as independent).
+
+![CNN Training Curves](reports/figures/cnn_training_curves.png)
+
+## Model Comparison
+
+| Model | Test Accuracy |
+|---|---|
+| Dense NN baseline | 63.5% |
+| CNN (with augmentation) | 72.7% |
+
+Full training code and reasoning are in `notebooks/04_cnn.ipynb`.
+
 ## Project Structure
 
 - `data/` — raw and processed data (gitignored)
@@ -85,7 +118,7 @@ compared against. Full training curves and reasoning are in
 1. **Data preprocessing** — load images, resize to 64x64, normalize, encode labels,
    stratified train/val/test split *(done)*
 2. **Baseline model** — dense neural network *(done)*
-3. **CNN model** — convolutional architecture, trained on Google Colab (GPU)
+3. **CNN model** — convolutional architecture, trained on Google Colab (GPU) *(done)*
 4. **Transfer learning** — fine-tuning a pretrained CNN backbone
 5. **Class imbalance handling** — class weighting / focal loss
 6. **Classical ML comparison** — Random Forest on hand-engineered features
@@ -104,5 +137,5 @@ Dataset must be downloaded separately from Kaggle and placed in `data/raw/`
 
 ## Status
 
-🚧 Work in progress — baseline dense NN done (63.5% test accuracy), moving to
-CNN next.
+🚧 Work in progress — CNN done (72.7% test accuracy, up from 63.5% dense
+baseline), moving to transfer learning next.
