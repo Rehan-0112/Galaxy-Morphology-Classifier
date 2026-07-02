@@ -96,14 +96,50 @@ via convolution, instead of treating every pixel as independent).
 
 ![CNN Training Curves](reports/figures/cnn_training_curves.png)
 
-## Model Comparison
+## Transfer Learning — EfficientNetB0 (v1)
 
-| Model | Test Accuracy |
-|---|---|
-| Dense NN baseline | 63.5% |
-| CNN (with augmentation) | 72.7% |
+Built a transfer learning model using EfficientNetB0 pretrained on ImageNet as
+a frozen feature extractor, with a custom classification head (Dense 128 →
+Dropout 0.3 → Softmax 3). Used a two-phase training approach:
 
-Full training code and reasoning are in `notebooks/04_cnn.ipynb`.
+- **Phase 1 (frozen backbone):** trained only the classification head at
+  learning rate 1e-3 — let the pretrained features do the work while the
+  new head learns to classify galaxies. Best val accuracy: ~70.0%.
+- **Phase 2 (full fine-tuning):** unfroze the entire backbone and continued
+  training at a much lower learning rate (1e-5) so the pretrained weights
+  could adapt to galaxy-specific patterns without catastrophically forgetting
+  what they learned on ImageNet. Val accuracy improved steadily every epoch
+  through all 10 epochs (early stopping never triggered — model was still
+  learning at the end).
+
+Also switched from loading preprocessed numpy arrays to a **tf.data pipeline**
+that loads and resizes raw images on the fly during training — necessary because
+loading 61k images at 224×224 all at once requires ~37GB RAM, far exceeding
+Colab's ~12GB limit. tf.data handles this by only keeping one batch (32 images)
+in memory at a time.
+
+**Final test accuracy: 73.8%** — a modest improvement over the CNN baseline
+(72.7%), smaller than expected. Likely reasons: EfficientNetB0 is a relatively
+small model (~4M params), and the domain gap between ImageNet (everyday photos)
+and galaxy images (grayscale-ish circular structures on black backgrounds) means
+pretrained features don't transfer as cleanly as they would for more similar
+domains.
+
+![Transfer Learning Curves](reports/figures/transfer_learning_curves.png)
+
+## Model Comparison (so far)
+
+| Model | Test Accuracy | Notes |
+|---|---|---|
+| Dense NN baseline | 63.5% | Flattened pixels, no spatial awareness |
+| CNN (from scratch) | 72.7% | Conv2D + augmentation, 64×64 images |
+| EfficientNetB0 (transfer learning) | 73.8% | Pretrained ImageNet, 224×224 images |
+
+**Planned improvements to push accuracy higher:**
+- Confidence filtering on labels (keep only high-confidence vote fractions ≥ 0.7)
+- Class weighting to address Spiral class underrepresentation
+- EfficientNetB3 with cleaner labels
+- Test Time Augmentation (TTA) at evaluation
 
 ## Project Structure
 
@@ -119,7 +155,7 @@ Full training code and reasoning are in `notebooks/04_cnn.ipynb`.
    stratified train/val/test split *(done)*
 2. **Baseline model** — dense neural network *(done)*
 3. **CNN model** — convolutional architecture, trained on Google Colab (GPU) *(done)*
-4. **Transfer learning** — fine-tuning a pretrained CNN backbone
+4. **Transfer learning** — fine-tuning a pretrained CNN backbone *(in progress)*
 5. **Class imbalance handling** — class weighting / focal loss
 6. **Classical ML comparison** — Random Forest on hand-engineered features
 7. **Interpretability** — Grad-CAM visualizations, confusion matrix, error analysis
@@ -137,5 +173,6 @@ Dataset must be downloaded separately from Kaggle and placed in `data/raw/`
 
 ## Status
 
-🚧 Work in progress — CNN done (72.7% test accuracy, up from 63.5% dense
-baseline), moving to transfer learning next.
+🚧 Work in progress — transfer learning v1 done (73.8% with EfficientNetB0).
+Next: confidence filtering on labels → class weighting → EfficientNetB3 → TTA,
+targeting 80%+ accuracy.
