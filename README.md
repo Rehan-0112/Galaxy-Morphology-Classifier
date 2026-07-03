@@ -96,6 +96,39 @@ via convolution, instead of treating every pixel as independent).
 
 ![CNN Training Curves](reports/figures/cnn_training_curves.png)
 
+## CNN + Confidence Filtering + Class Weighting
+
+Same CNN architecture as before (three Conv2D + MaxPooling blocks, 32 → 64 → 128
+filters, Dense 128 head, softmax output, data augmentation) — but trained on a
+cleaner, refiltered version of the dataset with two key changes:
+
+**1. Confidence filtering (vote fraction >= 0.7)**
+Raised the labeling threshold from 0.5 to 0.7. Only galaxies where at least 70%
+of volunteers agreed on a class were kept — dropping 24,766 genuinely ambiguous
+galaxies (~40% of the original dataset). This left 36,812 high-confidence examples
+with much cleaner labels.
+
+**2. Class weighting**
+Used sklearn's compute_class_weight to automatically calculate per-class weights
+based on frequency, then passed these to Keras via the class_weight parameter in
+.fit(). This penalizes Spiral misclassifications more heavily during training,
+since Spirals make up only ~18% of the confident dataset (~6,500 examples vs
+~16,000 Irregular and ~14,000 Smooth).
+
+**Final test accuracy: 80.1%** — the biggest single jump in the project, going
+from 72.7% (original CNN) to 80.1% just by fixing data quality and loss weighting,
+without changing the architecture at all.
+
+![CNN Confident Curves](reports/figures/cnn_confident_curves.png)
+
+### Key finding
+
+A simpler CNN on clean labels (80.1%) outperformed a pretrained EfficientNetB0
+on noisy labels (73.8%). Label quality mattered more than model complexity —
+which reflects a well-known principle in applied ML: garbage in, garbage out.
+The ~40% of the dataset that was dropped wasn't adding signal, it was adding
+noise that actively hurt the model's ability to learn clean decision boundaries.
+
 ## Transfer Learning — EfficientNetB0 (v1)
 
 Built a transfer learning model using EfficientNetB0 pretrained on ImageNet as
@@ -127,13 +160,14 @@ domains.
 
 ![Transfer Learning Curves](reports/figures/transfer_learning_curves.png)
 
-## Model Comparison (so far)
+## Model Comparison
 
-| Model | Test Accuracy | Notes |
+| Model | Dataset | Test Accuracy |
 |---|---|---|
-| Dense NN baseline | 63.5% | Flattened pixels, no spatial awareness |
-| CNN (from scratch) | 72.7% | Conv2D + augmentation, 64×64 images |
-| EfficientNetB0 (transfer learning) | 73.8% | Pretrained ImageNet, 224×224 images |
+| Dense NN baseline | Original (61k, 0.5 threshold) | 63.5% |
+| CNN (from scratch) | Original (61k, 0.5 threshold) | 72.7% |
+| EfficientNetB0 (transfer learning) | Original (61k, 0.5 threshold) | 73.8% |
+| CNN + confidence filtering + class weighting | Confident (36k, 0.7 threshold) | 80.1% |
 
 **Planned improvements to push accuracy higher:**
 - Confidence filtering on labels (keep only high-confidence vote fractions ≥ 0.7)
@@ -156,7 +190,7 @@ domains.
 2. **Baseline model** — dense neural network *(done)*
 3. **CNN model** — convolutional architecture, trained on Google Colab (GPU) *(done)*
 4. **Transfer learning** — fine-tuning a pretrained CNN backbone *(in progress)*
-5. **Class imbalance handling** — class weighting / focal loss
+5. **Class imbalance handling** — class weighting / focal loss *(done)*
 6. **Classical ML comparison** — Random Forest on hand-engineered features
 7. **Interpretability** — Grad-CAM visualizations, confusion matrix, error analysis
 
@@ -173,6 +207,7 @@ Dataset must be downloaded separately from Kaggle and placed in `data/raw/`
 
 ## Status
 
-🚧 Work in progress — transfer learning v1 done (73.8% with EfficientNetB0).
-Next: confidence filtering on labels → class weighting → EfficientNetB3 → TTA,
-targeting 80%+ accuracy.
+🚧 Work in progress — CNN with confidence filtering + class weighting achieved
+80.1% test accuracy (up from 72.7% baseline CNN). Key finding: label quality
+mattered more than model complexity. Next: EfficientNetB3 on confident dataset,
+then TTA.
