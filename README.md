@@ -197,6 +197,60 @@ Full code in `notebooks/05.1_zoobot_transfer_learning.ipynb`.
 | EfficientNetB3 + confidence filtering + class weighting | Confident (36k, 0.7 threshold) | TensorFlow | 81.6% |
 | **Zoobot (galaxy pretrained) + confidence filtering + class weighting** | **Confident (36k, 0.7 threshold)** | **PyTorch** | **90.7%** |
 
+## Error Analysis and Interpretability
+
+### Confusion Matrix
+
+![Confusion Matrix](reports/figures/confusion_matrix.png)
+
+The model achieves 90.7% overall accuracy with meaningful variation across
+classes:
+
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| Smooth | 0.976 | 0.961 | 0.969 |
+| Irregular | 0.927 | 0.855 | 0.889 |
+| Spiral | 0.748 | 0.916 | 0.823 |
+
+**Smooth galaxies** are classified most reliably — their featureless, round
+appearance is visually distinctive and unambiguous. **Spiral galaxies** have
+high recall (91.6%) but lower precision (74.8%) — the model finds most spirals
+but also calls some Irregulars Spiral. The dominant confusion pair is
+Irregular → Spiral (302 cases, 12.5% of true Irregulars), which makes
+scientific sense: irregular and disturbed galaxies sometimes have partial or
+distorted spiral-like structure — the same ambiguity that caused ~40% of the
+original dataset to be dropped by confidence filtering.
+
+Notably, there are zero Smooth ↔ Spiral confusions in either direction — the
+model correctly treats these as visually distinct categories.
+
+### Grad-CAM Visualizations
+
+Grad-CAM (Gradient-weighted Class Activation Mapping) highlights which parts
+of each galaxy image the model focuses on when making predictions.
+
+**Correctly classified examples:**
+
+![Grad-CAM Correct](reports/figures/gradcam_correct.png)
+
+**Misclassified examples:**
+
+![Grad-CAM Misclassified](reports/figures/gradcam_misclassified.png)
+
+Key observations:
+- **Smooth galaxies:** heatmaps concentrate on the bright central region and
+  overall elliptical shape.
+- **Spiral galaxies:** heatmaps highlight spiral arm regions and disk structure
+  — the model is genuinely detecting structural morphological features.
+- **Irregular galaxies:** heatmaps are more diffuse, highlighting asymmetric
+  or off-center features consistent with irregular structure.
+- **Misclassified examples:** heatmaps show the model attending to genuinely
+  ambiguous features — e.g. an Irregular galaxy called Spiral because of a
+  faint curved feature resembling a spiral arm. The confusion is feature-based,
+  not random.
+
+Full analysis in `notebooks/07_gradcam_error_analysis.ipynb`.
+
 ## Key Findings
 
 1. **Label quality > model complexity** — a simple CNN on clean labels (80.1%)
@@ -213,9 +267,13 @@ Full code in `notebooks/05.1_zoobot_transfer_learning.ipynb`.
    This ceiling on human agreement partially explains why even good models
    struggle past certain accuracy thresholds on this dataset.
 
-4. **Cross-framework comparison** — TensorFlow (CNN/EfficientNet pipeline) and
-   PyTorch (Zoobot) used side by side, reflecting real industry workflows where
-   different tools are chosen based on what's available and best suited.
+4. **Confusion mirrors scientific ambiguity** — the model's hardest confusion
+   pair (Irregular → Spiral) matches the known boundary that professional
+   astronomers find genuinely difficult. The model is learning real morphological
+   complexity, not just statistical shortcuts.
+
+5. **Cross-framework comparison** — TensorFlow (CNN/EfficientNet pipeline) and
+   PyTorch (Zoobot) used side by side, reflecting real industry workflows.
 
 ## Project Structure
 
@@ -233,8 +291,9 @@ Full code in `notebooks/05.1_zoobot_transfer_learning.ipynb`.
 | `02_preprocessing.ipynb` | Image loading, normalization, splits (v1 + v2) |
 | `03_baseline_dense_nn.ipynb` | Dense NN baseline, overfitting diagnosis, early stopping |
 | `04_cnn.ipynb` | CNN from scratch + confidence filtering + class weighting |
-| `05_transfer_learning.ipynb` | EfficientNetB0 + EfficientNetB3 two-phase fine-tuning, tf.data pipeline |
+| `05_transfer_learning.ipynb` | EfficientNetB0 + EfficientNetB3 two-phase fine-tuning |
 | `05.1_zoobot_transfer_learning.ipynb` | Zoobot galaxy-pretrained fine-tuning in PyTorch |
+| `07_gradcam_error_analysis.ipynb` | Grad-CAM, confusion matrix, error analysis |
 
 ## Setup
 
@@ -251,6 +310,6 @@ feasible only for the dense baseline and preprocessing steps.
 
 ## Status
 
-🚧 Work in progress — best result: 90.7% test accuracy (Zoobot galaxy-pretrained,
-PyTorch). Next: TTA, classical ML comparison (Random Forest), Grad-CAM
-interpretability, Streamlit deployment on Hugging Face Spaces.
+🚧 Work in progress — best result: 90.7% test accuracy (Zoobot,
+galaxy-pretrained, PyTorch). Remaining: classical ML comparison (Random
+Forest), Streamlit deployment on Hugging Face Spaces.
